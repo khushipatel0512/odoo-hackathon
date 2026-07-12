@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react'
 import { getVehicles, createVehicle } from '../api/index'
 
 const statusColor = {
-  Available: 'bg-green-100 text-green-700',
-  'On Trip': 'bg-blue-100 text-blue-700',
-  'In Shop': 'bg-orange-100 text-orange-700',
-  Retired: 'bg-red-100 text-red-700',
   active: 'bg-green-100 text-green-700',
+  maintenance: 'bg-orange-100 text-orange-700',
   inactive: 'bg-red-100 text-red-700',
 }
 
@@ -16,21 +13,19 @@ function Vehicles() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('All')
   const [form, setForm] = useState({
-    vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active'
+    vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active', purchase_date: ''
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchVehicles()
-  }, [])
+  useEffect(() => { fetchVehicles() }, [])
 
   const fetchVehicles = async () => {
     try {
       const res = await getVehicles()
       setVehicles(res.data)
     } catch (err) {
-      console.error('Error fetching vehicles:', err)
+      console.error('Error:', err)
     } finally {
       setLoading(false)
     }
@@ -51,11 +46,12 @@ function Vehicles() {
     try {
       await createVehicle({ ...form, capacity: Number(form.capacity) })
       fetchVehicles()
-      setForm({ vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active' })
+      setForm({ vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active', purchase_date: '' })
       setError('')
       setShowModal(false)
     } catch (err) {
       setError('Failed to add vehicle. Try again.')
+      console.error(err.response?.data)
     }
   }
 
@@ -66,28 +62,19 @@ function Vehicles() {
           <h2 className="text-2xl font-bold text-gray-800">Vehicles</h2>
           <p className="text-gray-500 text-sm">Manage your fleet registry</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-        >
+        <button onClick={() => setShowModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition">
           + Add Vehicle
         </button>
       </div>
 
       <div className="flex gap-3 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search by name or reg number..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-        />
-        {['All', 'active', 'inactive'].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${filterStatus === s ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
-          >
+        <input type="text" placeholder="Search by name or reg number..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64" />
+        {['All', 'active', 'maintenance', 'inactive'].map(s => (
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${filterStatus === s ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border hover:bg-gray-50'}`}>
             {s}
           </button>
         ))}
@@ -104,6 +91,7 @@ function Vehicles() {
                 <th className="px-4 py-3">Model Name</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Capacity</th>
+                <th className="px-4 py-3">Purchase Date</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -114,6 +102,7 @@ function Vehicles() {
                   <td className="px-4 py-3">{v.model_name}</td>
                   <td className="px-4 py-3">{v.vehicle_type}</td>
                   <td className="px-4 py-3">{v.capacity}</td>
+                  <td className="px-4 py-3">{v.purchase_date || '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v.status]}`}>
                       {v.status}
@@ -122,7 +111,7 @@ function Vehicles() {
                 </tr>
               ))}
               {filtered.length === 0 && !loading && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No vehicles found</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No vehicles found</td></tr>
               )}
             </tbody>
           </table>
@@ -143,38 +132,34 @@ function Vehicles() {
               ].map(field => (
                 <div key={field.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
-                  <input
-                    type="text"
-                    placeholder={field.placeholder}
-                    value={form[field.key]}
+                  <input type="text" placeholder={field.placeholder} value={form[field.key]}
                     onChange={e => setForm({ ...form, [field.key]: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               ))}
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
+                <input type="date" value={form.purchase_date}
+                  onChange={e => setForm({ ...form, purchase_date: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={form.status}
-                  onChange={e => setForm({ ...form, status: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                >
+                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   <option value="active">Active</option>
+                  <option value="maintenance">In Maintenance</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button
-                onClick={() => { setShowModal(false); setError('') }}
-                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50"
-              >
+              <button onClick={() => { setShowModal(false); setError('') }}
+                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50">
                 Cancel
               </button>
-              <button
-                onClick={handleAdd}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
-              >
+              <button onClick={handleAdd}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
                 Add Vehicle
               </button>
             </div>
