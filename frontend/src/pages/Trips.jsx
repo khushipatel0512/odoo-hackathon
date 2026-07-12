@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTrips, createTrip, updateTrip } from '../api/index'
+import { getTrips, createTrip, updateTrip, getDrivers, getVehicles } from '../api/index'
 
 const statusColor = {
   scheduled: 'bg-yellow-100 text-yellow-700',
@@ -10,6 +10,8 @@ const statusColor = {
 
 function Trips() {
   const [trips, setTrips] = useState([])
+  const [drivers, setDrivers] = useState([])
+  const [vehicles, setVehicles] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
@@ -18,7 +20,11 @@ function Trips() {
   })
   const [error, setError] = useState('')
 
-  useEffect(() => { fetchTrips() }, [])
+  useEffect(() => {
+    fetchTrips()
+    getDrivers().then(res => setDrivers(res.data))
+    getVehicles().then(res => setVehicles(res.data))
+  }, [])
 
   const fetchTrips = async () => {
     try {
@@ -147,16 +153,26 @@ function Trips() {
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle ID</label>
-                <input type="number" placeholder="1" value={form.vehicle}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle</label>
+                <select value={form.vehicle}
                   onChange={e => setForm({ ...form, vehicle: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Select Vehicle</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.registration_number} - {v.model}</option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Driver ID</label>
-                <input type="number" placeholder="1" value={form.driver}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                <select value={form.driver}
                   onChange={e => setForm({ ...form, driver: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Select Driver</option>
+                  {drivers.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
               </div>
               {[
                 { label: 'Origin', key: 'origin', placeholder: 'Mumbai' },
