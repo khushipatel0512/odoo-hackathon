@@ -159,7 +159,7 @@ function Trips() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   <option value="">Select Vehicle</option>
                   {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.registration_number} - {v.model}</option>
+                    <option key={v.id} value={v.id}>Vehicle {v.id}</option>
                   ))}
                 </select>
               </div>
@@ -170,7 +170,7 @@ function Trips() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                   <option value="">Select Driver</option>
                   {drivers.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <option key={d.id} value={d.id}>{d.name || `Driver ${d.id}`}</option>
                   ))}
                 </select>
               </div>
