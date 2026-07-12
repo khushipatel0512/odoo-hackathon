@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'trips',
     'maintenance',
     'fuel',
+    'authentication',
 ]
 
 MIDDLEWARE = [
