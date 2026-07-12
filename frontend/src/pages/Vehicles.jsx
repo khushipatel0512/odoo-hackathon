@@ -1,50 +1,62 @@
-import { useState } from 'react'
-
-const initialVehicles = [
-  { id: 1, reg: 'GJ01AB1234', name: 'Tata Ace', type: 'Mini Truck', capacity: 500, odometer: 12000, status: 'Available' },
-  { id: 2, reg: 'GJ02CD5678', name: 'Ashok Leyland', type: 'Heavy Truck', capacity: 5000, odometer: 45000, status: 'On Trip' },
-  { id: 3, reg: 'GJ03EF9012', name: 'Mahindra Bolero', type: 'Pickup', capacity: 800, odometer: 8000, status: 'In Shop' },
-  { id: 4, reg: 'GJ04GH3456', name: 'Eicher Pro', type: 'Medium Truck', capacity: 2000, odometer: 23000, status: 'Available' },
-  { id: 5, reg: 'GJ05IJ7890', name: 'Force Traveller', type: 'Van', capacity: 1000, odometer: 5000, status: 'Retired' },
-]
+import { useState, useEffect } from 'react'
+import { getVehicles, createVehicle } from '../api/index'
 
 const statusColor = {
   Available: 'bg-green-100 text-green-700',
   'On Trip': 'bg-blue-100 text-blue-700',
   'In Shop': 'bg-orange-100 text-orange-700',
   Retired: 'bg-red-100 text-red-700',
+  active: 'bg-green-100 text-green-700',
+  inactive: 'bg-red-100 text-red-700',
 }
 
 function Vehicles() {
-  const [vehicles, setVehicles] = useState(initialVehicles)
+  const [vehicles, setVehicles] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('All')
   const [form, setForm] = useState({
-    reg: '', name: '', type: '', capacity: '', odometer: '', status: 'Available'
+    vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active'
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchVehicles()
+  }, [])
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await getVehicles()
+      setVehicles(res.data)
+    } catch (err) {
+      console.error('Error fetching vehicles:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filtered = vehicles.filter(v => {
-    const matchSearch = v.reg.toLowerCase().includes(search.toLowerCase()) ||
-      v.name.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = v.vehicle_number?.toLowerCase().includes(search.toLowerCase()) ||
+      v.model_name?.toLowerCase().includes(search.toLowerCase())
     const matchStatus = filterStatus === 'All' || v.status === filterStatus
     return matchSearch && matchStatus
   })
 
-  const handleAdd = () => {
-    if (!form.reg || !form.name || !form.type || !form.capacity) {
+  const handleAdd = async () => {
+    if (!form.vehicle_number || !form.model_name || !form.vehicle_type || !form.capacity) {
       setError('Please fill all fields')
       return
     }
-    if (vehicles.find(v => v.reg === form.reg)) {
-      setError('Registration number already exists')
-      return
+    try {
+      await createVehicle({ ...form, capacity: Number(form.capacity) })
+      fetchVehicles()
+      setForm({ vehicle_number: '', model_name: '', vehicle_type: '', capacity: '', status: 'active' })
+      setError('')
+      setShowModal(false)
+    } catch (err) {
+      setError('Failed to add vehicle. Try again.')
     }
-    setVehicles([...vehicles, { ...form, id: vehicles.length + 1, capacity: Number(form.capacity), odometer: Number(form.odometer) }])
-    setForm({ reg: '', name: '', type: '', capacity: '', odometer: '', status: 'Available' })
-    setError('')
-    setShowModal(false)
   }
 
   return (
@@ -62,7 +74,6 @@ function Vehicles() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-3 flex-wrap">
         <input
           type="text"
@@ -71,7 +82,7 @@ function Vehicles() {
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
         />
-        {['All', 'Available', 'On Trip', 'In Shop', 'Retired'].map(s => (
+        {['All', 'active', 'inactive'].map(s => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -82,42 +93,42 @@ function Vehicles() {
         ))}
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
-            <tr>
-              <th className="px-4 py-3">Reg Number</th>
-              <th className="px-4 py-3">Name/Model</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Capacity (kg)</th>
-              <th className="px-4 py-3">Odometer (km)</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(v => (
-              <tr key={v.id} className="border-t hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-blue-600">{v.reg}</td>
-                <td className="px-4 py-3">{v.name}</td>
-                <td className="px-4 py-3">{v.type}</td>
-                <td className="px-4 py-3">{v.capacity}</td>
-                <td className="px-4 py-3">{v.odometer}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v.status]}`}>
-                    {v.status}
-                  </span>
-                </td>
+        {loading ? (
+          <div className="p-8 text-center text-gray-400">Loading vehicles...</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-left">
+              <tr>
+                <th className="px-4 py-3">Reg Number</th>
+                <th className="px-4 py-3">Model Name</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Capacity</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No vehicles found</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map(v => (
+                <tr key={v.id} className="border-t hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-blue-600">{v.vehicle_number}</td>
+                  <td className="px-4 py-3">{v.model_name}</td>
+                  <td className="px-4 py-3">{v.vehicle_type}</td>
+                  <td className="px-4 py-3">{v.capacity}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[v.status]}`}>
+                      {v.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && !loading && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No vehicles found</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
@@ -125,11 +136,10 @@ function Vehicles() {
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
             <div className="space-y-3">
               {[
-                { label: 'Registration Number', key: 'reg', placeholder: 'GJ01AB1234' },
-                { label: 'Vehicle Name/Model', key: 'name', placeholder: 'Tata Ace' },
-                { label: 'Type', key: 'type', placeholder: 'Mini Truck' },
-                { label: 'Max Capacity (kg)', key: 'capacity', placeholder: '500' },
-                { label: 'Odometer (km)', key: 'odometer', placeholder: '0' },
+                { label: 'Registration Number', key: 'vehicle_number', placeholder: 'GJ01AB1234' },
+                { label: 'Model Name', key: 'model_name', placeholder: 'Tata Ace' },
+                { label: 'Vehicle Type', key: 'vehicle_type', placeholder: 'Mini Truck' },
+                { label: 'Capacity', key: 'capacity', placeholder: '500' },
               ].map(field => (
                 <div key={field.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
@@ -147,11 +157,10 @@ function Vehicles() {
                 <select
                   value={form.status}
                   onChange={e => setForm({ ...form, status: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 >
-                  <option>Available</option>
-                  <option>In Shop</option>
-                  <option>Retired</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
             </div>
