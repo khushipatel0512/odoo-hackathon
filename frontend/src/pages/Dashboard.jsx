@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-import { getVehicles, getDrivers, getTrips, getFuelLogs } from '../api/index'
+import { getVehicles, getDrivers, getTrips, getFuel } from '../api/index'
 
 const statusColor = {
   Completed: 'bg-green-100 text-green-700',
@@ -25,7 +25,7 @@ function Dashboard() {
       getVehicles(),
       getDrivers(),
       getTrips(),
-      getFuelLogs().catch(() => ({ data: [] }))
+      getFuel().catch(() => ({ data: [] }))
     ]).then(([v, d, t, f]) => {
       setVehicles(v.data)
       setDrivers(d.data)
@@ -35,7 +35,6 @@ function Dashboard() {
     })
   }, [])
 
-  // KPI calculations from real data
   const totalVehicles = vehicles.length
   const activeTrips = trips.filter(t => t.status === 'ongoing').length
   const driversOnDuty = drivers.filter(d => d.status === 'on_trip' || d.status === 'active').length
@@ -52,7 +51,6 @@ function Dashboard() {
     { label: 'Fleet Utilization', value: `${fleetUtilization}%`, icon: '📊', color: 'bg-pink-500' },
   ]
 
-  // Trips this week by day
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const tripData = days.map(day => ({
     day,
@@ -62,7 +60,6 @@ function Dashboard() {
     }).length
   }))
 
-  // Fuel cost by month from real data
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const fuelData = months.map(month => ({
     month,
@@ -74,7 +71,6 @@ function Dashboard() {
       .reduce((sum, f) => sum + Number(f.total_cost || f.cost || 0), 0)
   })).filter(m => m.cost > 0)
 
-  // Recent trips — last 5
   const recentTrips = [...trips]
     .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
     .slice(0, 5)
@@ -90,7 +86,6 @@ function Dashboard() {
         <p className="text-gray-500 text-sm">Welcome back! Here's your fleet overview.</p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {kpis.map((kpi) => (
           <div key={kpi.label} className="bg-white rounded-xl shadow p-4 flex items-center gap-4">
@@ -105,7 +100,6 @@ function Dashboard() {
         ))}
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-xl shadow p-4">
           <h3 className="font-semibold text-gray-700 mb-4">Trips This Week</h3>
@@ -134,7 +128,6 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Trips Table */}
       <div className="bg-white rounded-xl shadow p-4">
         <h3 className="font-semibold text-gray-700 mb-4">Recent Trips</h3>
         <table className="w-full text-sm">
