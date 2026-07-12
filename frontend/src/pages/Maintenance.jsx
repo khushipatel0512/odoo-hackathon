@@ -1,58 +1,49 @@
 import { useState, useEffect } from 'react'
-import { getMaintenance, createMaintenance, updateMaintenance } from '../api/index'
-
-const statusColor = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  in_progress: 'bg-blue-100 text-blue-700',
-  completed: 'bg-green-100 text-green-700',
-}
+import { getMaintenance, createMaintenance } from '../api/index'
 
 function Maintenance() {
   const [logs, setLogs] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({
-    vehicle: '', maintenance_type: '', description: '', date: '', cost: '', status: 'pending'
+    vehicle: '', maintenance_type: 'routine', description: '', date: '', cost: '', next_due_date: ''
   })
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetchMaintenance()
-  }, [])
+  useEffect(() => { fetchMaintenance() }, [])
 
   const fetchMaintenance = async () => {
     try {
       const res = await getMaintenance()
       setLogs(res.data)
     } catch (err) {
-      console.error('Error fetching maintenance:', err)
+      console.error('Error:', err)
     } finally {
       setLoading(false)
     }
   }
 
   const handleAdd = async () => {
-    if (!form.vehicle || !form.maintenance_type || !form.date) {
+    if (!form.vehicle || !form.maintenance_type || !form.date || !form.cost) {
       setError('Please fill all fields')
       return
     }
     try {
-      await createMaintenance({ ...form, cost: Number(form.cost) })
+      await createMaintenance({
+        vehicle: Number(form.vehicle),
+        maintenance_type: form.maintenance_type,
+        description: form.description,
+        date: form.date,
+        cost: Number(form.cost),
+        next_due_date: form.next_due_date || null
+      })
       fetchMaintenance()
-      setForm({ vehicle: '', maintenance_type: '', description: '', date: '', cost: '', status: 'pending' })
+      setForm({ vehicle: '', maintenance_type: 'routine', description: '', date: '', cost: '', next_due_date: '' })
       setError('')
       setShowModal(false)
     } catch (err) {
       setError('Failed to add record.')
-    }
-  }
-
-  const updateStatus = async (id, status) => {
-    try {
-      await updateMaintenance(id, { status })
-      fetchMaintenance()
-    } catch (err) {
-      console.error('Error updating status:', err)
+      console.error(err.response?.data)
     }
   }
 
@@ -63,10 +54,8 @@ function Maintenance() {
           <h2 className="text-2xl font-bold text-gray-800">Maintenance</h2>
           <p className="text-gray-500 text-sm">Track vehicle maintenance and repairs</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-        >
+        <button onClick={() => setShowModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition">
           + Add Record
         </button>
       </div>
@@ -83,41 +72,22 @@ function Maintenance() {
                 <th className="px-4 py-3">Description</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Cost</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">Next Due</th>
               </tr>
             </thead>
             <tbody>
               {logs.map(l => (
                 <tr key={l.id} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3">{l.vehicle}</td>
-                  <td className="px-4 py-3">{l.maintenance_type}</td>
+                  <td className="px-4 py-3 capitalize">{l.maintenance_type}</td>
                   <td className="px-4 py-3">{l.description}</td>
                   <td className="px-4 py-3">{l.date}</td>
                   <td className="px-4 py-3">₹{l.cost}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[l.status]}`}>
-                      {l.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {l.status === 'pending' && (
-                      <button onClick={() => updateStatus(l.id, 'in_progress')}
-                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">
-                        Start
-                      </button>
-                    )}
-                    {l.status === 'in_progress' && (
-                      <button onClick={() => updateStatus(l.id, 'completed')}
-                        className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700">
-                        Complete
-                      </button>
-                    )}
-                  </td>
+                  <td className="px-4 py-3">{l.next_due_date || '-'}</td>
                 </tr>
               ))}
               {logs.length === 0 && !loading && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No records found</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No records found</td></tr>
               )}
             </tbody>
           </table>
@@ -130,27 +100,44 @@ function Maintenance() {
             <h3 className="text-lg font-bold text-gray-800 mb-4">Add Maintenance Record</h3>
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
             <div className="space-y-3">
-              {[
-                { label: 'Vehicle ID', key: 'vehicle', placeholder: '1' },
-                { label: 'Maintenance Type', key: 'maintenance_type', placeholder: 'Oil Change' },
-                { label: 'Description', key: 'description', placeholder: 'Describe issue' },
-                { label: 'Cost (₹)', key: 'cost', placeholder: '2500' },
-              ].map(field => (
-                <div key={field.key}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
-                  <input
-                    type="text"
-                    placeholder={field.placeholder}
-                    value={form[field.key]}
-                    onChange={e => setForm({ ...form, [field.key]: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-              ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle ID</label>
+                <input type="number" placeholder="1" value={form.vehicle}
+                  onChange={e => setForm({ ...form, vehicle: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Type</label>
+                <select value={form.maintenance_type}
+                  onChange={e => setForm({ ...form, maintenance_type: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="routine">Routine Service</option>
+                  <option value="repair">Repair</option>
+                  <option value="inspection">Inspection</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input type="text" placeholder="Describe the issue" value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cost (₹)</label>
+                <input type="number" placeholder="2500" value={form.cost}
+                  onChange={e => setForm({ ...form, cost: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                 <input type="date" value={form.date}
                   onChange={e => setForm({ ...form, date: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Due Date (optional)</label>
+                <input type="date" value={form.next_due_date}
+                  onChange={e => setForm({ ...form, next_due_date: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
