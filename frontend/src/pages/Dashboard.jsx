@@ -1,48 +1,88 @@
+import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
-
-const kpis = [
-  { label: 'Total Vehicles', value: 12, icon: '🚛', color: 'bg-blue-500' },
-  { label: 'Active Trips', value: 4, icon: '🗺️', color: 'bg-green-500' },
-  { label: 'Drivers On Duty', value: 6, icon: '👤', color: 'bg-purple-500' },
-  { label: 'In Maintenance', value: 2, icon: '🔧', color: 'bg-orange-500' },
-  { label: 'Available Vehicles', value: 6, icon: '✅', color: 'bg-teal-500' },
-  { label: 'Fleet Utilization', value: '67%', icon: '📊', color: 'bg-pink-500' },
-]
-
-const tripData = [
-  { day: 'Mon', trips: 4 },
-  { day: 'Tue', trips: 6 },
-  { day: 'Wed', trips: 3 },
-  { day: 'Thu', trips: 8 },
-  { day: 'Fri', trips: 5 },
-  { day: 'Sat', trips: 2 },
-  { day: 'Sun', trips: 1 },
-]
-
-const fuelData = [
-  { month: 'Feb', cost: 12000 },
-  { month: 'Mar', cost: 15000 },
-  { month: 'Apr', cost: 11000 },
-  { month: 'May', cost: 17000 },
-  { month: 'Jun', cost: 14000 },
-  { month: 'Jul', cost: 16000 },
-]
-
-const recentTrips = [
-  { id: 'T001', from: 'Mumbai', to: 'Pune', driver: 'Raj Kumar', status: 'Completed' },
-  { id: 'T002', from: 'Ahmedabad', to: 'Surat', driver: 'Alex Shah', status: 'Active' },
-  { id: 'T003', from: 'Delhi', to: 'Jaipur', driver: 'Priya Patel', status: 'Pending' },
-  { id: 'T004', from: 'Bangalore', to: 'Chennai', driver: 'Mohan Das', status: 'Active' },
-]
+import { getVehicles, getDrivers, getTrips, getFuelLogs } from '../api/index'
 
 const statusColor = {
   Completed: 'bg-green-100 text-green-700',
+  completed: 'bg-green-100 text-green-700',
   Active: 'bg-blue-100 text-blue-700',
+  ongoing: 'bg-blue-100 text-blue-700',
   Pending: 'bg-yellow-100 text-yellow-700',
+  scheduled: 'bg-yellow-100 text-yellow-700',
   Cancelled: 'bg-red-100 text-red-700',
+  cancelled: 'bg-red-100 text-red-700',
 }
 
 function Dashboard() {
+  const [vehicles, setVehicles] = useState([])
+  const [drivers, setDrivers] = useState([])
+  const [trips, setTrips] = useState([])
+  const [fuelLogs, setFuelLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      getVehicles(),
+      getDrivers(),
+      getTrips(),
+      getFuelLogs().catch(() => ({ data: [] }))
+    ]).then(([v, d, t, f]) => {
+      setVehicles(v.data)
+      setDrivers(d.data)
+      setTrips(t.data)
+      setFuelLogs(f.data)
+      setLoading(false)
+    })
+  }, [])
+
+  // KPI calculations from real data
+  const totalVehicles = vehicles.length
+  const activeTrips = trips.filter(t => t.status === 'ongoing').length
+  const driversOnDuty = drivers.filter(d => d.status === 'on_trip' || d.status === 'active').length
+  const inMaintenance = vehicles.filter(v => v.status === 'maintenance').length
+  const availableVehicles = vehicles.filter(v => v.status === 'active').length
+  const fleetUtilization = totalVehicles > 0 ? Math.round((availableVehicles / totalVehicles) * 100) : 0
+
+  const kpis = [
+    { label: 'Total Vehicles', value: totalVehicles, icon: '🚛', color: 'bg-blue-500' },
+    { label: 'Active Trips', value: activeTrips, icon: '🗺️', color: 'bg-green-500' },
+    { label: 'Drivers On Duty', value: driversOnDuty, icon: '👤', color: 'bg-purple-500' },
+    { label: 'In Maintenance', value: inMaintenance, icon: '🔧', color: 'bg-orange-500' },
+    { label: 'Available Vehicles', value: availableVehicles, icon: '✅', color: 'bg-teal-500' },
+    { label: 'Fleet Utilization', value: `${fleetUtilization}%`, icon: '📊', color: 'bg-pink-500' },
+  ]
+
+  // Trips this week by day
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const tripData = days.map(day => ({
+    day,
+    trips: trips.filter(t => {
+      const d = new Date(t.start_time)
+      return days[d.getDay()] === day
+    }).length
+  }))
+
+  // Fuel cost by month from real data
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const fuelData = months.map(month => ({
+    month,
+    cost: fuelLogs
+      .filter(f => {
+        const d = new Date(f.date || f.created_at)
+        return months[d.getMonth()] === month
+      })
+      .reduce((sum, f) => sum + Number(f.total_cost || f.cost || 0), 0)
+  })).filter(m => m.cost > 0)
+
+  // Recent trips — last 5
+  const recentTrips = [...trips]
+    .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
+    .slice(0, 5)
+
+  if (loading) {
+    return <div className="p-6 text-center text-gray-400">Loading dashboard...</div>
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -83,7 +123,7 @@ function Dashboard() {
         <div className="bg-white rounded-xl shadow p-4">
           <h3 className="font-semibold text-gray-700 mb-4">Fuel Cost Trend</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={fuelData}>
+            <LineChart data={fuelData.length > 0 ? fuelData : [{ month: 'No data', cost: 0 }]}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
               <YAxis />
@@ -108,19 +148,23 @@ function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {recentTrips.map((trip) => (
-              <tr key={trip.id} className="border-b last:border-0 hover:bg-gray-50">
-                <td className="py-2 font-medium text-blue-600">{trip.id}</td>
-                <td className="py-2">{trip.from}</td>
-                <td className="py-2">{trip.to}</td>
-                <td className="py-2">{trip.driver}</td>
-                <td className="py-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[trip.status]}`}>
-                    {trip.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {recentTrips.length === 0 ? (
+              <tr><td colSpan={5} className="py-4 text-center text-gray-400">No trips yet</td></tr>
+            ) : (
+              recentTrips.map((trip) => (
+                <tr key={trip.id} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="py-2 font-medium text-blue-600">T{String(trip.id).padStart(3, '0')}</td>
+                  <td className="py-2">{trip.origin}</td>
+                  <td className="py-2">{trip.destination}</td>
+                  <td className="py-2">{trip.driver_name || `Driver ${trip.driver}`}</td>
+                  <td className="py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[trip.status]}`}>
+                      {trip.status}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
